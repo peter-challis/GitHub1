@@ -1,0 +1,45 @@
+---
+- hosts: localhost
+  gather_facts: true
+  become: yes
+  become_user: root
+
+  tasks:
+#  - name: Recursively find ALM files
+#    find:
+#      paths: /var/lib/docker/overlay2/
+#      patterns: "ALM*.txt"
+#      age: 1000000m
+#      recurse: yes
+#      file_type: file
+#      excludes: 'nginx,mysql'
+#    register: files_matched
+
+  - name: recurse path
+    find:
+      path: /var/lib/docker/overlay2
+      recurse: yes
+#      patterns: "wrapper.txt,SaServerLog_*.html,QcLog_*.html"
+      patterns: "wrapper.txt"
+#      file_type: file
+#      age: 10m
+    register: files
+
+  - name: Print var
+    debug:
+      msg: "{{ item.path }}"
+    with_items: '{{ files.files }}'
+
+  - name: Archive to zip
+    archive:
+      path: "{{ item.path }}"
+#      remove: True
+      dest: /home/ALM/archive.zip
+      format: zip
+    with_items: '{{ files.files }}'
+
+#  - name: copy files
+#    copy:
+#      src: "{{ item.path }}"
+#      dest: /home/ALM
+#    with_items: "{{ files.files }}"

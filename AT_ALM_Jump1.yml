@@ -1,0 +1,16 @@
+---
+- hosts: winhost
+  gather_facts: true
+
+  vars:
+  - jump1_source: C:\ALM\Source\ALMCopy.txt
+  - jump1_dest: /home/toweradmin/
+
+  tasks:
+  - name: Jump1 - Copy files from Win to AT
+    fetch:
+      src: "{{ jump1_source }}"
+      remote_src: yes
+      dest: "{{ jump1_dest }}"
+      flat: yes
+      validate_checksum: no

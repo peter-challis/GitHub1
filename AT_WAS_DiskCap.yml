@@ -1,0 +1,48 @@
+---
+- hosts: node1
+  gather_facts: false
+  become: yes
+  become_user: root
+
+  tasks:
+  - name: Memory check
+    command: free -h -w
+    register: memory
+
+  - name: Disk capacity check
+    command: df -hT /home/toweradmin/logs
+    register: space
+
+  - name: Print the filesystem usage before any activity has been taken
+    debug:
+      var: space.stdout_lines
+
+  - name: Uptime executed to add time stamp to txt
+    command: "uptime"
+    register: uptimeoutput
+
+  - name: Print server uptime
+    debug:
+      var: uptimeoutput.stdout_lines
+
+  - name: Get timestamp from the system
+    shell: "date +%Y-%m-%d%H-%M-%S"
+    register: tstamp
+
+  - name: Set variables
+    set_fact:
+     cur_date: "{{ tstamp.stdout[0:10]}}"
+     cur_time: "{{ tstamp.stdout[10:]}}"
+
+  - name: System timestamp - date
+    debug:
+     msg:  "Current date: {{ cur_date }}"
+
+  - name: System timestamp - time
+    debug:
+     msg:  "Current date: {{ cur_time }}"
+
+  - name: copy capacity in to txt with Datestamp
+    copy:
+      content: "{{ space.stdout_lines }} \n\n\n{{ uptimeoutput.stdout_lines }} \n\n\n{{ memory }}"
+      dest: "/home/toweradmin/logs/DiskCap:{{ cur_date }}:{{ cur_time }}.txt"
