@@ -1,0 +1,91 @@
+# Playbook create late 2021 for patching project
+---
+- hosts: node1
+  gather_facts: false
+  become: yes
+  become_user: root
+
+  vars:
+    source: /home/ansible/automation
+    destination: /home/ansible/merged_data/windows_patch_info.csv
+
+# Create folder structure incase its disappears
+  tasks:
+  - name: destination for the AT copy of post patch report
+    ansible.builtin.file:
+      path: /home/ansible/report_zip
+      state: directory
+      mode: '0777'
+
+  - name: destination for the report and multiple zipped up reports
+    ansible.builtin.file:
+      path: /home/ansible/merged_data
+      state: directory
+      mode: '0777'
+
+  - name: destination for the unzipped reports
+    ansible.builtin.file:
+      path: /home/ansible/automation
+      state: directory
+      mode: '0777'
+
+# Post patching playbook will zip all endpoint reports - test for the prod version
+  - name: Unarchive a file with extra options
+    unarchive:
+#     src: https://example.com/example.zip
+      src: /home/ansible/report_zip/*.gz
+      remote_src: yes
+      dest: /home/ansible/report_zip
+      remote_src: yes
+      mode: '0777'
+
+# Remove previous merged report
+  - name: Remove merged file
+    ansible.builtin.file:
+      path: /home/ansible/merged_data/windows_patch_info.csv
+      state: absent
+
+# Merge all endpoint reports into one csv
+  - name: Merge raw contents from all data filesystem
+    assemble:
+      src: "{{ source }}"
+      dest: "{{ destination }}"
+
+# Below datestamp code will be replaced with simple version when running from toweradmin
+# simple code will not run via Ansible in a Box
+  - name: datestamp for archive file
+    shell: "date +%Y-%m-%d%H-%M-%S"
+    register: tstamp
+
+  - name: Set var for datestamp
+    set_fact:
+     cur_date: "{{ tstamp.stdout[0:10]}}"
+     cur_time: "{{ tstamp.stdout[10:]}}"
+
+# Archive and datestamp windows_patch_info.csv
+  - name: Archive to gz file type
+    archive:
+      path: /home/ansible/merged_data/windows_patch_info.csv
+      dest: "/home/ansible/merged_data/PatchingReport-{{ cur_date }}:{{ cur_time }}.gz"
+      format: gz
+      mode: '0777'
+
+# Various Housekeeping tasks to clean up the SFS box
+# How long do we want to keep the archived files for?
+  - name: Housekeeping  Find archives older than 1 year
+    find:
+      paths: /home/ansible/merged_data
+      age: 56w
+      recurse: yes
+    register: filesOlderThan1Y
+
+  - name: Housekeeping - Remove archives older than 1 year
+    file:
+      path: "{{ item.path }}"
+      state: absent
+    with_items: "{{ filesOlderThan1Y.files }}"
+
+  - name: Housekeeping - Remove zip file copied from AT
+    file:
+      path: /home/ansible/report_zip/*.gz
+      state: absent
